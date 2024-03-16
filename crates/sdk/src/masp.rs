@@ -2291,13 +2291,17 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
 
         display_line!(context.io(), "Before builder_clone");
         display_line!(context.io(), "update_ctx {:?}",update_ctx);
-        display_line!(context.io(), " builder.clone() {:?}", builder.clone());
+        display_line!(context.io(), "Before builder.clone() {:#?}", builder.clone());
         let builder_clone = builder.clone().map_builder(WalletMap);
+        display_line!(context.io(), " After builder_clone {:#?}", builder_clone);
         // Build and return the constructed transaction
         #[cfg(not(feature = "testing"))]
         let prover = context.shielded().await.utils.local_tx_prover();
+        display_line!(context.io(), " prover1");
         #[cfg(feature = "testing")]
         let prover = testing::MockTxProver(std::sync::Mutex::new(OsRng));
+        display_line!(context.io(), " prover2");
+
         let (masp_tx, metadata) =
             builder.build(&prover, &FeeRule::non_standard(U64Sum::zero()))?;
         display_line!(context.io(), "update_ctx {:?}",update_ctx);
