@@ -2145,6 +2145,7 @@ pub async fn build_ibc_transfer(
     args: &args::TxIbcTransfer,
 ) -> Result<(Tx, SigningTxData, Option<Epoch>)> {
     display_line!(context.io(), "Building Transfer arg... {:#?}",args);
+    println!("Building Transfer arg... {:#?}", args);
     let source = args.source.effective_address();
     let signing_data = signing::aux_signing_data(
         context,
@@ -2154,6 +2155,7 @@ pub async fn build_ibc_transfer(
     )
     .await?;
     display_line!(context.io(), "source {:#?}",source);
+    println!("source {:#?}", source);
     let (fee_amount, updated_balance, unshield) =
         validate_fee_and_gen_unshield(
             context,
@@ -2167,6 +2169,7 @@ pub async fn build_ibc_transfer(
         source_exists_or_err(source.clone(), args.tx.force, context).await?;
     // We cannot check the receiver
     display_line!(context.io(), "Before Validate amount");
+    println!("Before Validate amount");
     // validate the amount given
     let validated_amount =
         validate_amount(context, args.amount, &args.token, args.tx.force)
@@ -2179,6 +2182,7 @@ pub async fn build_ibc_transfer(
         )));
     }
     display_line!(context.io(), "Before check_balance");
+    println!("Before check_balance");
     let check_balance = if updated_balance.source == source
         && updated_balance.token == args.token
     {
@@ -2188,6 +2192,7 @@ pub async fn build_ibc_transfer(
     };
 
     display_line!(context.io(), "check_balance_too_low_err");
+    println!("Before check_balance_too_low_err");
     check_balance_too_low_err(
         &args.token,
         &source,
@@ -2199,12 +2204,14 @@ pub async fn build_ibc_transfer(
     .await?;
 
     display_line!(context.io(), "tx_code_hash");
+    println!("Before tx_code_hash");
     let tx_code_hash =
         query_wasm_code_hash(context, args.tx_code_path.to_str().unwrap())
             .await
             .map_err(|e| Error::from(QueryError::Wasm(e.to_string())))?;
 
     display_line!(context.io(), "tx_code_hash {:?}",tx_code_hash);
+    println!("Before tx_code_hash {:?}",tx_code_hash);
     // For transfer from a spending key
     let shielded_parts = construct_shielded_parts(
         context,
@@ -2217,18 +2224,22 @@ pub async fn build_ibc_transfer(
     )
     .await?;
     display_line!(context.io(), "shielded_parts {:?}",shielded_parts);
+    println!(" shielded_parts {:?}",shielded_parts);
     let shielded_tx_epoch = shielded_parts.as_ref().map(|trans| trans.0.epoch);
     display_line!(context.io(), "shielded_tx_epoch {:?}",shielded_tx_epoch);
+    println!(" shielded_tx_epoch {:?}",shielded_tx_epoch);
     let ibc_denom =
         rpc::query_ibc_denom(context, &args.token.to_string(), Some(&source))
             .await;
     display_line!(context.io(), "ibc_denom {:?}",ibc_denom);
+    println!(" ibc_denom {:?}",ibc_denom);
     let token = PrefixedCoin {
         denom: ibc_denom.parse().expect("Invalid IBC denom"),
         // Set the IBC amount as an integer
         amount: validated_amount.into(),
     };
     display_line!(context.io(), "token {:?}",token);
+    println!(" token {:?}",token);
     let packet_data = PacketData {
         token,
         sender: source.to_string().into(),
@@ -2236,6 +2247,7 @@ pub async fn build_ibc_transfer(
         memo: args.memo.clone().unwrap_or_default().into(),
     };
     display_line!(context.io(), "packet_data {:?}",packet_data);
+    println!(" packet_data {:?}",packet_data);
     // this height should be that of the destination chain, not this chain
     let timeout_height = match args.timeout_height {
         Some(h) => {
@@ -2246,6 +2258,7 @@ pub async fn build_ibc_transfer(
         None => TimeoutHeight::Never,
     };
     display_line!(context.io(), "timeout_height {:?}",timeout_height);
+    println!(" timeout_height {:?}",timeout_height);
     let now: std::result::Result<
         crate::tendermint::Time,
         namada_core::tendermint::Error,
@@ -2264,6 +2277,7 @@ pub async fn build_ibc_transfer(
         IbcTimestamp::none()
     };
     display_line!(context.io(), "timeout_timestamp {:?}",timeout_timestamp);
+    println!("timeout_timestamp: {:?}", timeout_timestamp);
 
     let message = MsgTransfer {
         port_id_on_a: args.port_id.clone(),
@@ -2273,12 +2287,14 @@ pub async fn build_ibc_transfer(
         timeout_timestamp_on_b: timeout_timestamp,
     };
     display_line!(context.io(), "message {:?}",message);
+    println!(" message {:?}",message);
     let chain_id = args.tx.chain_id.clone().unwrap();
     let mut tx = Tx::new(chain_id, args.tx.expiration);
     if let Some(memo) = &args.tx.memo {
         tx.add_memo(memo);
     }
     display_line!(context.io(), "tx {:?}",tx);
+    println!(" tx {:?}",tx);
     let data = match shielded_parts {
         Some((shielded_transfer, asset_types)) => {
             let masp_tx_hash =
@@ -2320,6 +2336,7 @@ pub async fn build_ibc_transfer(
         }
     };
     display_line!(context.io(), "data {:?}",data);
+    println!(" data {:?}",data);
 
     tx.add_code_from_hash(
         tx_code_hash,
@@ -2327,6 +2344,7 @@ pub async fn build_ibc_transfer(
     )
     .add_serialized_data(data);
     display_line!(context.io(), "Done add_code_from_hash");
+    println!(" Done add_code_from_hash");
     prepare_tx(
         context.client(),
         &args.tx,
@@ -2337,6 +2355,7 @@ pub async fn build_ibc_transfer(
     )
     .await?;
     display_line!(context.io(), "Done prepare_tx");
+    println!(" Done prepare_tx");
     Ok((tx, signing_data, shielded_tx_epoch))
 }
 
@@ -2614,18 +2633,23 @@ async fn construct_shielded_parts<N: Namada>(
     update_ctx: bool,
 ) -> Result<Option<(ShieldedTransfer, HashSet<AssetData>)>> {
     // Precompute asset types to increase chances of success in decoding
+    display_line!(context.io(), "=============== Start contruct ===================");
     let token_map = context.wallet().await.get_addresses();
+    display_line!(context.io(), "token_map {:?}",token_map);
     let tokens = token_map.values().collect();
+    display_line!(context.io(), "tokens {:?}",tokens);
     let _ = context
         .shielded_mut()
         .await
         .precompute_asset_types(context.client(), tokens)
         .await;
+    display_line!(context.io(), "token_map {:?}",token_map);
     let stx_result =
         ShieldedContext::<N::ShieldedUtils>::gen_shielded_transfer(
             context, source, target, token, amount, update_ctx,
         )
         .await;
+    display_line!(context.io(), "stx_result {:?}",stx_result);
 
     let shielded_parts = match stx_result {
         Ok(Some(stx)) => stx,
@@ -2642,13 +2666,14 @@ async fn construct_shielded_parts<N: Namada>(
             return Err(TxSubmitError::MaspError(err.to_string()).into());
         }
     };
+    display_line!(context.io(), "shielded_parts {:?}",shielded_parts);
 
     // Get the decoded asset types used in the transaction to give offline
     // wallet users more information
     let asset_types = used_asset_types(context, &shielded_parts.builder)
         .await
         .unwrap_or_default();
-
+    display_line!(context.io(), "asset_types {:?}",asset_types);
     Ok(Some((shielded_parts, asset_types)))
 }
 

@@ -1948,7 +1948,7 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
     ) -> Result<Option<ShieldedTransfer>, TransferErr> {
         // No shielded components are needed when neither source nor destination
         // are shielded
-
+        display_line!(context.io(), "==================== gen_shielded_transfer ================");
         use rand::rngs::StdRng;
         use rand_core::SeedableRng;
 
@@ -1967,10 +1967,12 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
             let mut shielded = context.shielded_mut().await;
             let _ = shielded.load().await;
         }
+        display_line!(context.io(), "spending_key {:?}",spending_key);
         // Determine epoch in which to submit potential shielded transaction
         let epoch = rpc::query_epoch(context.client()).await?;
         // Context required for storing which notes are in the source's
         // possession
+        display_line!(context.io(), "epoch {:?}",epoch);
         let memo = MemoBytes::empty();
 
         // Try to get a seed from env var, if any.
@@ -2031,6 +2033,7 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
                 u32::MAX - 20
             }
         };
+        display_line!(context.io(), "expiration_height {:?}",expiration_height);
         let mut builder = Builder::<TestNetwork, _>::new_with_rng(
             NETWORK,
             // NOTE: this is going to add 20 more blocks to the actual
@@ -2063,7 +2066,7 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
             let _ = shielded.save().await;
             amount
         };
-
+        display_line!(context.io(), "asset_types");
         // If there are shielded inputs
         if let Some(sk) = spending_key {
             // Locate unspent notes that can help us meet the transaction amount
@@ -2128,7 +2131,7 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
                 }
             }
         }
-
+        display_line!(context.io(), "spending_key");
         // Anotate the asset type in the value balance with its decoding in
         // order to facilitate cross-epoch computations
         let value_balance = builder.value_balance().map_err(|e| {
@@ -2158,6 +2161,7 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
         } else {
             None
         };
+        display_line!(context.io(), "transparent_target_hash {:?}", transparent_target_hash);
         // This indicates how many more assets need to be sent to the receiver
         // in order to satisfy the requested transfer amount.
         let mut rem_amount = amount.amount().raw_amount().0;
@@ -2283,6 +2287,7 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
             }
         }
 
+        display_line!(context.io(), "Now add outputs representing the change from this payment");
         let builder_clone = builder.clone().map_builder(WalletMap);
         // Build and return the constructed transaction
         #[cfg(not(feature = "testing"))]
