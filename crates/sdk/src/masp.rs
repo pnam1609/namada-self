@@ -1996,6 +1996,7 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
             rng
         };
 
+        display_line!(context.io(), "context {:#?}",context.tx_builder());
         // Now we build up the transaction within this object
         let expiration_height: u32 = match context.tx_builder().expiration {
             Some(expiration) => {
@@ -2006,8 +2007,6 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
                         .await?
                         .map_or_else(|| 1, |block| u64::from(block.height));
                 let current_time = DateTimeUtc::now();
-                let a =current_time.0;
-                let a =expiration.0;
                 let delta_time =
                     expiration.0.signed_duration_since(current_time.0);
 
@@ -2292,6 +2291,7 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
 
         display_line!(context.io(), "Before builder_clone");
         display_line!(context.io(), "update_ctx {:?}",update_ctx);
+        display_line!(context.io(), " builder.clone() {:?}", builder.clone());
         let builder_clone = builder.clone().map_builder(WalletMap);
         // Build and return the constructed transaction
         #[cfg(not(feature = "testing"))]
