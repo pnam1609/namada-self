@@ -2144,6 +2144,7 @@ pub async fn build_ibc_transfer(
     context: &impl Namada,
     args: &args::TxIbcTransfer,
 ) -> Result<(Tx, SigningTxData, Option<Epoch>)> {
+    display_line!(context.io(), "Building Transfer arg... {:#?}",args);
     let source = args.source.effective_address();
     let signing_data = signing::aux_signing_data(
         context,
@@ -2152,6 +2153,7 @@ pub async fn build_ibc_transfer(
         Some(source.clone()),
     )
     .await?;
+    display_line!(context.io(), "source {:#?}",source);
     let (fee_amount, updated_balance, unshield) =
         validate_fee_and_gen_unshield(
             context,
@@ -2159,12 +2161,12 @@ pub async fn build_ibc_transfer(
             &signing_data.fee_payer,
         )
         .await?;
-
+    
     // Check that the source address exists on chain
     let source =
         source_exists_or_err(source.clone(), args.tx.force, context).await?;
     // We cannot check the receiver
-
+    display_line!(context.io(), "Before Validate amount");
     // validate the amount given
     let validated_amount =
         validate_amount(context, args.amount, &args.token, args.tx.force)
@@ -2176,7 +2178,7 @@ pub async fn build_ibc_transfer(
             validated_amount
         )));
     }
-
+    display_line!(context.io(), "Before check_balance");
     let check_balance = if updated_balance.source == source
         && updated_balance.token == args.token
     {
@@ -2185,6 +2187,7 @@ pub async fn build_ibc_transfer(
         CheckBalance::Query(balance_key(&args.token, &source))
     };
 
+    display_line!(context.io(), "check_balance_too_low_err");
     check_balance_too_low_err(
         &args.token,
         &source,
@@ -2195,11 +2198,13 @@ pub async fn build_ibc_transfer(
     )
     .await?;
 
+    display_line!(context.io(), "tx_code_hash");
     let tx_code_hash =
         query_wasm_code_hash(context, args.tx_code_path.to_str().unwrap())
             .await
             .map_err(|e| Error::from(QueryError::Wasm(e.to_string())))?;
 
+    display_line!(context.io(), "tx_code_hash {:?}",tx_code_hash);
     // For transfer from a spending key
     let shielded_parts = construct_shielded_parts(
         context,
@@ -2211,23 +2216,26 @@ pub async fn build_ibc_transfer(
         !(args.tx.dry_run || args.tx.dry_run_wrapper),
     )
     .await?;
+    display_line!(context.io(), "shielded_parts {:?}",shielded_parts);
     let shielded_tx_epoch = shielded_parts.as_ref().map(|trans| trans.0.epoch);
-
+    display_line!(context.io(), "shielded_tx_epoch {:?}",shielded_tx_epoch);
     let ibc_denom =
         rpc::query_ibc_denom(context, &args.token.to_string(), Some(&source))
             .await;
+    display_line!(context.io(), "ibc_denom {:?}",ibc_denom);
     let token = PrefixedCoin {
         denom: ibc_denom.parse().expect("Invalid IBC denom"),
         // Set the IBC amount as an integer
         amount: validated_amount.into(),
     };
+    display_line!(context.io(), "token {:?}",token);
     let packet_data = PacketData {
         token,
         sender: source.to_string().into(),
         receiver: args.receiver.clone().into(),
         memo: args.memo.clone().unwrap_or_default().into(),
     };
-
+    display_line!(context.io(), "packet_data {:?}",packet_data);
     // this height should be that of the destination chain, not this chain
     let timeout_height = match args.timeout_height {
         Some(h) => {
@@ -2237,11 +2245,12 @@ pub async fn build_ibc_transfer(
         }
         None => TimeoutHeight::Never,
     };
-
+    display_line!(context.io(), "timeout_height {:?}",timeout_height);
     let now: std::result::Result<
         crate::tendermint::Time,
         namada_core::tendermint::Error,
     > = DateTimeUtc::now().try_into();
+    
     let now = now.map_err(|e| Error::Other(e.to_string()))?;
     let now: IbcTimestamp = now.into();
     let timeout_timestamp = if let Some(offset) = args.timeout_sec_offset {
@@ -2254,6 +2263,7 @@ pub async fn build_ibc_transfer(
     } else {
         IbcTimestamp::none()
     };
+    display_line!(context.io(), "timeout_timestamp {:?}",timeout_timestamp);
 
     let message = MsgTransfer {
         port_id_on_a: args.port_id.clone(),
@@ -2262,13 +2272,13 @@ pub async fn build_ibc_transfer(
         timeout_height_on_b: timeout_height,
         timeout_timestamp_on_b: timeout_timestamp,
     };
-
+    display_line!(context.io(), "message {:?}",message);
     let chain_id = args.tx.chain_id.clone().unwrap();
     let mut tx = Tx::new(chain_id, args.tx.expiration);
     if let Some(memo) = &args.tx.memo {
         tx.add_memo(memo);
     }
-
+    display_line!(context.io(), "tx {:?}",tx);
     let data = match shielded_parts {
         Some((shielded_transfer, asset_types)) => {
             let masp_tx_hash =
@@ -2309,13 +2319,14 @@ pub async fn build_ibc_transfer(
             data
         }
     };
+    display_line!(context.io(), "data {:?}",data);
 
     tx.add_code_from_hash(
         tx_code_hash,
         Some(args.tx_code_path.to_string_lossy().into_owned()),
     )
     .add_serialized_data(data);
-
+    display_line!(context.io(), "Done add_code_from_hash");
     prepare_tx(
         context.client(),
         &args.tx,
@@ -2325,7 +2336,7 @@ pub async fn build_ibc_transfer(
         signing_data.fee_payer.clone(),
     )
     .await?;
-
+    display_line!(context.io(), "Done prepare_tx");
     Ok((tx, signing_data, shielded_tx_epoch))
 }
 
