@@ -2287,7 +2287,7 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
             }
         }
 
-        display_line!(context.io(), "Now add outputs representing the change from this payment");
+        display_line!(context.io(), "Before builder_clone");
         let builder_clone = builder.clone().map_builder(WalletMap);
         // Build and return the constructed transaction
         #[cfg(not(feature = "testing"))]
@@ -2296,15 +2296,17 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
         let prover = testing::MockTxProver(std::sync::Mutex::new(OsRng));
         let (masp_tx, metadata) =
             builder.build(&prover, &FeeRule::non_standard(U64Sum::zero()))?;
-
+        display_line!(context.io(), "update_ctx {:?}",update_ctx);
         if update_ctx {
             // Cache the generated transfer
             let mut shielded_ctx = context.shielded_mut().await;
+            display_line!(context.io(), "shielded_ctx");
             shielded_ctx
                 .pre_cache_transaction(
                     context, &masp_tx, source, target, token, epoch,
                 )
                 .await?;
+            display_line!(context.io(), "after pre_cache_transaction");
         }
 
         Ok(Some(ShieldedTransfer {
@@ -2330,6 +2332,8 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
     ) -> Result<(), Error> {
         // Need to mock the changed balance keys
         let mut changed_balance_keys = BTreeSet::default();
+        display_line!(context.io(), "source {}",source.effective_address());
+        display_line!(context.io(), "target {}",target.effective_address());
         match (source.effective_address(), target.effective_address()) {
             // Shielded transactions don't write balance keys
             (MASP, MASP) => (),
@@ -2338,8 +2342,11 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
                 changed_balance_keys.insert(balance_key(token, &target));
             }
         }
+        display_line!(context.io(), "Done match source and target");
+
 
         let native_token = query_native_token(context.client()).await?;
+        display_line!(context.io(), "native_token {}",native_token);
         let vks: Vec<_> = context
             .wallet()
             .await
@@ -2347,7 +2354,9 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
             .values()
             .map(|evk| ExtendedFullViewingKey::from(*evk).fvk.vk)
             .collect();
+        display_line!(context.io(), "vks {:?}",vks);
         let last_witnessed_tx = self.tx_note_map.keys().max();
+        display_line!(context.io(), "last_witnessed_tx {:?}",last_witnessed_tx);
         // This data will be discarded at the next fetch so we don't need to
         // populate it accurately
         let indexed_tx = last_witnessed_tx.map_or_else(
@@ -2360,6 +2369,7 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
                 index: indexed.index + 1,
             },
         );
+        display_line!(context.io(), "indexed_tx {:?}",indexed_tx);
         self.sync_status = ContextSyncStatus::Speculative;
         for vk in vks {
             self.vk_heights.entry(vk).or_default();
@@ -2373,9 +2383,10 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
                 native_token.clone(),
             )?;
         }
+        display_line!(context.io(), "after scan");
         // Save the speculative state for future usage
         self.save().await.map_err(|e| Error::Other(e.to_string()))?;
-
+        display_line!(context.io(), "Done save");
         Ok(())
     }
 
