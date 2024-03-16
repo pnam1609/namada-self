@@ -2006,6 +2006,8 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
                         .await?
                         .map_or_else(|| 1, |block| u64::from(block.height));
                 let current_time = DateTimeUtc::now();
+                let a =current_time.0;
+                let a =expiration.0;
                 let delta_time =
                     expiration.0.signed_duration_since(current_time.0);
 
@@ -2033,8 +2035,8 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
                 u32::MAX - 20
             }
         };
-        display_line!(context.io(), "expiration_height {:?}",expiration_height);
-        let mut builder = Builder::<TestNetwork, _>::new_with_rng(
+        
+        let mut builder: Builder<TestNetwork, StdRng> = Builder::<TestNetwork, _>::new_with_rng(
             NETWORK,
             // NOTE: this is going to add 20 more blocks to the actual
             // expiration but there's no other exposed function that we could
@@ -2042,7 +2044,8 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
             expiration_height.into(),
             rng,
         );
-
+        display_line!(context.io(), "expiration_height {:?}",expiration_height);
+        display_line!(context.io(), "builder {:#?}",builder);
         // Convert transaction amount into MASP types
         let Some(denom) = query_denom(context.client(), token).await else {
             return Err(TransferErr::General(Error::from(
@@ -2288,6 +2291,7 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
         }
 
         display_line!(context.io(), "Before builder_clone");
+        display_line!(context.io(), "update_ctx {:?}",update_ctx);
         let builder_clone = builder.clone().map_builder(WalletMap);
         // Build and return the constructed transaction
         #[cfg(not(feature = "testing"))]
@@ -2308,7 +2312,7 @@ impl<U: ShieldedUtils + MaybeSend + MaybeSync> ShieldedContext<U> {
                 .await?;
             display_line!(context.io(), "after pre_cache_transaction");
         }
-
+        display_line!(context.io(), "Done alllgen shielded transfer");
         Ok(Some(ShieldedTransfer {
             builder: builder_clone,
             masp_tx,
