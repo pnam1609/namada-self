@@ -217,25 +217,25 @@ pub async fn process_tx(
     // println!("HTTP request body: {}", request_body);
     display_line!(context.io(), "before process_tx");
     display_line!(context.io(), "args {:#?}",args);
-    display_line!(context.io(), " args.dry_run {:?}", args.dry_run);
-    display_line!(context.io(), " args.dry_run_wrapper {:?}", args.dry_run_wrapper);
+    display_line!(context.io(), " args.dry_run {:#?}", args.dry_run);
+    display_line!(context.io(), " args.dry_run_wrapper {:#?}", args.dry_run_wrapper);
     if args.dry_run || args.dry_run_wrapper {
         expect_dry_broadcast(TxBroadcastData::DryRun(tx), context).await
     } else {
         // We use this to determine when the wrapper tx makes it on-chain
         let wrapper_hash = tx.header_hash().to_string();
-        display_line!(context.io(), " wrapper_hash {:?}", wrapper_hash);
+        display_line!(context.io(), " wrapper_hash {:#?}", wrapper_hash);
         // We use this to determine when the decrypted inner tx makes it
         // on-chain
         let decrypted_hash = tx.raw_header_hash().to_string();
-        display_line!(context.io(), " decrypted_hash {:?}", decrypted_hash);
+        display_line!(context.io(), " decrypted_hash {:#?}", decrypted_hash);
         let to_broadcast = TxBroadcastData::Live {
             tx,
             wrapper_hash,
             decrypted_hash,
         };
-        display_line!(context.io(), " to_broadcast {:?}", to_broadcast);
-        display_line!(context.io(), " args.broadcast_only {:?}", args.broadcast_only);
+        display_line!(context.io(), " to_broadcast {:#?}", to_broadcast);
+        display_line!(context.io(), " args.broadcast_only {:#?}", args.broadcast_only);
         // TODO: implement the code to resubmit the wrapper if it fails because
         // of masp epoch Either broadcast or submit transaction and
         // collect result into sum type
@@ -247,6 +247,9 @@ pub async fn process_tx(
         } else {
             match submit_tx(context, to_broadcast).await {
                 Ok(resp) => {
+                    display_line!(context.io(), " resp {:#?}", resp);
+                    let test = resp.inner_tx.as_ref();
+                    display_line!(context.io(), " resp.inner_tx_result() {:#?}", test);
                     if let InnerTxResult::Success(result) =
                         resp.inner_tx_result()
                     {
@@ -343,7 +346,7 @@ pub async fn broadcast_tx(
     let response = lift_rpc_error(
         context.client().broadcast_tx_sync(tx.to_bytes()).await,
     )?;
-    display_line!(context.io(), " response {:?}", response);
+    display_line!(context.io(), " response {:#?}", response);
 
     if response.code == 0.into() {
         display_line!(context.io(), "Transaction added to mempool.");
@@ -2224,8 +2227,8 @@ pub async fn build_ibc_transfer(
             .await
             .map_err(|e| Error::from(QueryError::Wasm(e.to_string())))?;
 
-    display_line!(context.io(), "tx_code_hash {:?}",tx_code_hash);
-    println!("Before tx_code_hash {:?}",tx_code_hash);
+    display_line!(context.io(), "tx_code_hash {:#?}",tx_code_hash);
+    println!("Before tx_code_hash {:#?}",tx_code_hash);
     // For transfer from a spending key
     let shielded_parts = construct_shielded_parts(
         context,
@@ -2237,31 +2240,31 @@ pub async fn build_ibc_transfer(
         !(args.tx.dry_run || args.tx.dry_run_wrapper),
     )
     .await?;
-    display_line!(context.io(), "shielded_parts {:?}",shielded_parts);
-    println!(" shielded_parts {:?}",shielded_parts);
+    display_line!(context.io(), "shielded_parts {:#?}",shielded_parts);
+    println!(" shielded_parts {:#?}",shielded_parts);
     let shielded_tx_epoch = shielded_parts.as_ref().map(|trans| trans.0.epoch);
-    display_line!(context.io(), "shielded_tx_epoch {:?}",shielded_tx_epoch);
-    println!(" shielded_tx_epoch {:?}",shielded_tx_epoch);
+    display_line!(context.io(), "shielded_tx_epoch {:#?}",shielded_tx_epoch);
+    println!(" shielded_tx_epoch {:#?}",shielded_tx_epoch);
     let ibc_denom =
         rpc::query_ibc_denom(context, &args.token.to_string(), Some(&source))
             .await;
-    display_line!(context.io(), "ibc_denom {:?}",ibc_denom);
-    println!(" ibc_denom {:?}",ibc_denom);
+    display_line!(context.io(), "ibc_denom {:#?}",ibc_denom);
+    println!(" ibc_denom {:#?}",ibc_denom);
     let token = PrefixedCoin {
         denom: ibc_denom.parse().expect("Invalid IBC denom"),
         // Set the IBC amount as an integer
         amount: validated_amount.into(),
     };
-    display_line!(context.io(), "token {:?}",token);
-    println!(" token {:?}",token);
+    display_line!(context.io(), "token {:#?}",token);
+    println!(" token {:#?}",token);
     let packet_data = PacketData {
         token,
         sender: source.to_string().into(),
         receiver: args.receiver.clone().into(),
         memo: args.memo.clone().unwrap_or_default().into(),
     };
-    display_line!(context.io(), "packet_data {:?}",packet_data);
-    println!(" packet_data {:?}",packet_data);
+    display_line!(context.io(), "packet_data {:#?}",packet_data);
+    println!(" packet_data {:#?}",packet_data);
     // this height should be that of the destination chain, not this chain
     let timeout_height = match args.timeout_height {
         Some(h) => {
@@ -2271,8 +2274,8 @@ pub async fn build_ibc_transfer(
         }
         None => TimeoutHeight::Never,
     };
-    display_line!(context.io(), "timeout_height {:?}",timeout_height);
-    println!(" timeout_height {:?}",timeout_height);
+    display_line!(context.io(), "timeout_height {:#?}",timeout_height);
+    println!(" timeout_height {:#?}",timeout_height);
     let now: std::result::Result<
         crate::tendermint::Time,
         namada_core::tendermint::Error,
@@ -2290,8 +2293,8 @@ pub async fn build_ibc_transfer(
     } else {
         IbcTimestamp::none()
     };
-    display_line!(context.io(), "timeout_timestamp {:?}",timeout_timestamp);
-    println!("timeout_timestamp: {:?}", timeout_timestamp);
+    display_line!(context.io(), "timeout_timestamp {:#?}",timeout_timestamp);
+    println!("timeout_timestamp: {:#?}", timeout_timestamp);
 
     let message = MsgTransfer {
         port_id_on_a: args.port_id.clone(),
@@ -2300,15 +2303,15 @@ pub async fn build_ibc_transfer(
         timeout_height_on_b: timeout_height,
         timeout_timestamp_on_b: timeout_timestamp,
     };
-    display_line!(context.io(), "message {:?}",message);
-    println!(" message {:?}",message);
+    display_line!(context.io(), "message {:#?}",message);
+    println!(" message {:#?}",message);
     let chain_id = args.tx.chain_id.clone().unwrap();
     let mut tx = Tx::new(chain_id, args.tx.expiration);
     if let Some(memo) = &args.tx.memo {
         tx.add_memo(memo);
     }
-    display_line!(context.io(), "tx {:?}",tx);
-    println!(" tx {:?}",tx);
+    display_line!(context.io(), "tx {:#?}",tx);
+    println!(" tx {:#?}",tx);
     let data = match shielded_parts {
         Some((shielded_transfer, asset_types)) => {
             let masp_tx_hash =
@@ -2349,8 +2352,8 @@ pub async fn build_ibc_transfer(
             data
         }
     };
-    display_line!(context.io(), "data {:?}",data);
-    println!(" data {:?}",data);
+    display_line!(context.io(), "data {:#?}",data);
+    println!(" data {:#?}",data);
 
     tx.add_code_from_hash(
         tx_code_hash,
@@ -2609,7 +2612,7 @@ pub async fn build_transfer<N: Namada>(
             let masp_tx_hash = tx.add_masp_tx_section(masp_tx).1;
             transfer.shielded = Some(masp_tx_hash);
 
-            tracing::debug!("Transfer data {:?}", transfer);
+            tracing::debug!("Transfer data {:#?}", transfer);
 
             tx.add_masp_builder(MaspBuilder {
                 asset_types,
@@ -2649,21 +2652,21 @@ async fn construct_shielded_parts<N: Namada>(
     // Precompute asset types to increase chances of success in decoding
     display_line!(context.io(), "=============== Start contruct ===================");
     let token_map = context.wallet().await.get_addresses();
-    display_line!(context.io(), "token_map {:?}",token_map);
+    display_line!(context.io(), "token_map {:#?}",token_map);
     let tokens = token_map.values().collect();
-    display_line!(context.io(), "tokens {:?}",tokens);
+    display_line!(context.io(), "tokens {:#?}",tokens);
     let _ = context
         .shielded_mut()
         .await
         .precompute_asset_types(context.client(), tokens)
         .await;
-    display_line!(context.io(), "token_map {:?}",token_map);
+    display_line!(context.io(), "token_map {:#?}",token_map);
     let stx_result =
         ShieldedContext::<N::ShieldedUtils>::gen_shielded_transfer(
             context, source, target, token, amount, update_ctx,
         )
         .await;
-    display_line!(context.io(), "stx_result {:?}",stx_result);
+    display_line!(context.io(), "stx_result {:#?}",stx_result);
 
     let shielded_parts = match stx_result {
         Ok(Some(stx)) => stx,
@@ -2680,14 +2683,14 @@ async fn construct_shielded_parts<N: Namada>(
             return Err(TxSubmitError::MaspError(err.to_string()).into());
         }
     };
-    display_line!(context.io(), "shielded_parts {:?}",shielded_parts);
+    display_line!(context.io(), "shielded_parts {:#?}",shielded_parts);
 
     // Get the decoded asset types used in the transaction to give offline
     // wallet users more information
     let asset_types = used_asset_types(context, &shielded_parts.builder)
         .await
         .unwrap_or_default();
-    display_line!(context.io(), "asset_types {:?}",asset_types);
+    display_line!(context.io(), "asset_types {:#?}",asset_types);
     Ok(Some((shielded_parts, asset_types)))
 }
 
