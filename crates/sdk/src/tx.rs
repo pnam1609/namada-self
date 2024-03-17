@@ -215,24 +215,32 @@ pub async fn process_tx(
     // use tendermint_rpc::Request;
     // let request_body = request.into_json();
     // println!("HTTP request body: {}", request_body);
-
+    display_line!(context.io(), "before process_tx");
+    display_line!(context.io(), "args {:#?}",args);
+    display_line!(context.io(), " args.dry_run {:?}", args.dry_run);
+    display_line!(context.io(), " args.dry_run_wrapper {:?}", args.dry_run_wrapper);
     if args.dry_run || args.dry_run_wrapper {
         expect_dry_broadcast(TxBroadcastData::DryRun(tx), context).await
     } else {
         // We use this to determine when the wrapper tx makes it on-chain
         let wrapper_hash = tx.header_hash().to_string();
+        display_line!(context.io(), " wrapper_hash {:?}", wrapper_hash);
         // We use this to determine when the decrypted inner tx makes it
         // on-chain
         let decrypted_hash = tx.raw_header_hash().to_string();
+        display_line!(context.io(), " decrypted_hash {:?}", decrypted_hash);
         let to_broadcast = TxBroadcastData::Live {
             tx,
             wrapper_hash,
             decrypted_hash,
         };
+        display_line!(context.io(), " to_broadcast {:?}", to_broadcast);
+        display_line!(context.io(), " args.broadcast_only {:?}", args.broadcast_only);
         // TODO: implement the code to resubmit the wrapper if it fails because
         // of masp epoch Either broadcast or submit transaction and
         // collect result into sum type
         if args.broadcast_only {
+            
             broadcast_tx(context, &to_broadcast)
                 .await
                 .map(ProcessTxResponse::Broadcast)
@@ -335,6 +343,7 @@ pub async fn broadcast_tx(
     let response = lift_rpc_error(
         context.client().broadcast_tx_sync(tx.to_bytes()).await,
     )?;
+    display_line!(context.io(), " response {:?}", response);
 
     if response.code == 0.into() {
         display_line!(context.io(), "Transaction added to mempool.");
