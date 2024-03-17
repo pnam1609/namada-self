@@ -412,22 +412,27 @@ pub async fn submit_tx(
         let event =
             rpc::query_tx_status(context, wrapper_query, deadline).await?;
         let wrapper_resp = TxResponse::from_event(event);
+        display_line!(context.io(), " wrapper_resp {:#?}", wrapper_resp);
 
         if display_wrapper_resp_and_get_result(context, &wrapper_resp) {
             display_line!(
                 context.io(),
                 "Waiting for inner transaction result..."
             );
+            
             // The transaction is now on chain. We wait for it to be decrypted
             // and applied
             // We also listen to the event emitted when the encrypted
             // payload makes its way onto the blockchain
             let decrypted_query =
                 rpc::TxEventQuery::Applied(decrypted_hash.as_str());
+            display_line!(context.io(), " decrypted_query {:#?}", decrypted_query);
             let event =
                 rpc::query_tx_status(context, decrypted_query, deadline)
                     .await?;
+            display_line!(context.io(), " event {:#?}", event);
             let inner_resp = TxResponse::from_event(event);
+            display_line!(context.io(), " inner_resp {:#?}", inner_resp);
 
             display_inner_resp(context, &inner_resp);
             Ok(inner_resp)
